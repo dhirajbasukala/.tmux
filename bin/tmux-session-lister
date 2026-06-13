@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# List existing tmux sessions
+sessions=$(tmux list-sessions -F "#S" 2>/dev/null)
+
+# List project directories (Modify the path as needed)
+projects=$(find ~/work -maxdepth 1 -type d -printf "%f\n")
+
+# Combine sessions and projects for selection
+combined_list=$(printf "%s\n%s" "$sessions" "$projects" | sort -u)
+
+# Use fzf for selection
+if [[ $# -eq 1 ]]; then
+	selected=$1
+else
+  selected=$(echo "$combined_list" | fzf --prompt="Select session or project: ")
+
+# If nothing is selected, exit
+[[ -z "$selected" ]] && exit 0
+
+# If the selection is an existing session, attach or switch
+if echo "$sessions" | grep -qx "$selected"; then
+	if [[ -n "$TMUX" ]]; then
+		tmux switch-client -t "$selected"
+	else
+		tmux attach-session -t "$selected"
+	fi
+else
+	# Create a new session for the selected project
+	tmux new-session -s "$selected" -c "$HOME/projects/$selected"
+fi
